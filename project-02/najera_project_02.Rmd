@@ -2,10 +2,13 @@
 title: "Mini-Project 02"
 author: "Melanie Najera `mnajera4001@floridapoly.edu`"
 date: "`r Sys.Date()`"
+always_allow_html: true
 output:
   rmdformats::robobook:
     highlight: kate
     toc_depth: 3
+  md_document:
+    variant: gfm
 ---
 
 # Pre-requisites

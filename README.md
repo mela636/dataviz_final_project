@@ -21,7 +21,7 @@ In the `project_01/` folder you can find a revised exploration of the **Comic Bo
 
 _[Page Count by Publisher in Japan]_
 
-![Count Distribution of Comics 2000–2026](figures/project01_sample.png)
+![Page Count by Publisher in Japan](https://raw.githubusercontent.com/mela636/dataviz_final_project/main/figures/page_count_by_pub_jp.png)
 
 ---
 
@@ -31,10 +31,8 @@ In the `project_02/` folder you can find a revised exploration of two datasets f
 
 **Sample data visualization:** 
 
-_[Total Recording Births by Year]_
-<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/fl_higher_ed.png" width="80%" height="80%">
+![Total Recorded Births by Year](https://raw.githubusercontent.com/mela636/dataviz_final_project/main/figures/total_rec_births_year.png)
 
-(you can place your figures in the `figures/` folder and use the `![](path_to_picture)` option to add the pictures here)
 
 
 ## Project 03
@@ -43,9 +41,7 @@ In the project 3, I utilized the Tampa International Airport weather data (2022)
 
 **Sample data visualization:** 
 
-_[Daily Precipitation in Inches- Tampa, FL (2022)]_
-<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/concrete_density.png" width="80%" height="80%">
-
+![Daily Precipitation in Tampa, FL](https://raw.githubusercontent.com/mela636/dataviz_final_project/main/figures/precipitation_tampa_fl.png)
 
 ### Moving Forward
 
