@@ -8,13 +8,6 @@ The following is a sample of products created during the _"Data Visualization an
 
 ## Project 01
 
-In the `project_01/` folder you can find... _[add short description of your revised project here]_
-
-**Sample data visualization:** 
-
-_[include your favorite visualization from this project here]_
-<img src="https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/echarts.png" width="70%" height="70%">
-
 In the `project_01/` folder you can find a revised exploration of the **Comic Books Dataset (10,000 entries)** sourced from Kaggle (Rudra Kumar Gupta). The project analyzes publishing trends across countries, genres, and publishers through summary statistics and data visualizations. Japan leads in total published works with 3,575 comics, followed by the USA with 3,150. Page counts are heavily right-skewed, ratings cluster tightly between 7.5–9.0 across countries, and nearly 40% of comics received some form of award recognition. Publishing output peaked in 2023 before tapering off within the dataset.
 
 **Sample data visualization:**
