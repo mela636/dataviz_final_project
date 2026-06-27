@@ -1,0 +1,435 @@
+---
+title: "Data Visualization for Exploratory Data Analysis"
+author: "Melanie Najera `mnajera4001@floridapoly.edu`"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    highlight: kate
+    toc_depth: 3
+---
+
+## Instructions
+
+In this exercise you will explore methods to create different types of data visualizations (such as plotting text data, or exploring the distributions of continuous variables).
+
+
+# PART 1: Density Plots
+
+---
+
+Using the dataset obtained from FSU's [Florida Climate Center](https://climatecenter.fsu.edu/climate-data-access-tools/downloadable-data), for a station at Tampa International Airport (TPA) for 2022, attempt to recreate the charts shown below which were generated using data from 2016. You can read the 2022 dataset using the code below: 
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(gt)
+library(plotly)
+library(lubridate)
+library(ggridges)
+set.seed(636)
+```
+
+```{r, message=FALSE, warning=FALSE}
+weather_tpa <- read_csv("https://raw.githubusercontent.com/aalhamadani/datasets/master/tpa_weather_2022.csv")
+
+# random sample 
+sample_n(weather_tpa, 4)
+```
+
+```{r}
+glimpse(weather_tpa)
+```
+
+See Slides from Week 4 of Visualizing Relationships and Models (slide 10) for a reminder on how to use this type of dataset with the `lubridate` package for dates and times (example included in the slides uses data from 2016).
+
+Using the 2022 data: 
+
+(a) Create a plot like the one below:
+
+```{r, echo = FALSE, out.width="80%", fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_facet.png")
+```
+
+Hint: the option `binwidth = 3` was used with the `geom_histogram()` function.
+
+```{r}
+weather_tpa <- weather_tpa %>% 
+  mutate(
+    date = make_date(year, month, day),
+    month_name = month(date, label = TRUE, abbr = FALSE))
+```
+
+
+```{r fig.alt="Several graphs of maximum daily temperatures in Tampa, FL for each month of 2022. Summer months show temperatures concentrated in the high 80s to 90s Fahrenheit."}
+weather_tpa %>% 
+  ggplot(aes(x = max_temp, fill = month_name)) +
+  geom_histogram(binwidth = 3, color = "white") +
+  facet_wrap(~month_name, nrow = 3)+
+  scale_fill_viridis_d(guide = "none")+
+  labs(
+    title = "Maximum Temperatures each Month in Tampa, Florida (2022)",
+    x = "Maximum Temperatures",
+    y = "Number of Days",
+    caption = "Source: FSU's Florida Climate Center"
+  ) +
+  theme_bw()
+```
+
+
+(b) Create a plot like the one below:
+
+```{r, echo = FALSE, out.width="80%", fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_density.png")
+```
+
+Hint: check the `kernel` parameter of the `geom_density()` function, and use `bw = 0.5`.
+
+#### Original
+
+```{r fig.alt = "A density plot of the maximum temperatures in Tampa, FL in 2022 using an Epanechnikov kernel. The distribution is left-skewed with most temperatures falling between 70 and 95 degrees Fahrenheit."}
+weather_tpa %>% 
+  ggplot(aes(x=max_temp))+
+  geom_density(kernel = "epanechnikov", bw = 0.5, fill = "gray", color = "black")+
+  scale_x_continuous(limits = c(55, NA)) +
+  labs(
+    title = "Maximum Temperatures by Density in Tampa, Florida (2022)",
+    x = "Maximum Temperatures",
+    y = "Density",
+    caption = "Source: FSU's Florida Climate Center"
+  )+
+  theme_bw()
+```
+
+#### Redesign
+
+```{r fig.alt = "A density plot of maximum daily temperatures in Tampa, FL in 2022 using an Epanechnikov kernel. The distribution is roughly bell-shaped and slightly left-skewed, with most temperatures concentrated between 70 and 95 degrees Fahrenheit. A shaded region highlights the interquartile range.",warning=FALSE,message=FALSE}
+
+weather_tpa %>%
+  ggplot(aes(x = max_temp)) +
+  geom_density(
+    kernel = "epanechnikov", bw = 0.5,
+    fill = "#440154", color = "#440154", alpha = 0.4
+  ) +
+  geom_vline(
+    xintercept = median(weather_tpa$max_temp, na.rm = TRUE),
+    linetype = "dashed", color = "#FDE725", linewidth = 0.8
+  ) +
+  annotate("label",
+    x = median(weather_tpa$max_temp, na.rm = TRUE),
+    y = 0.045,
+    label = paste0("Median: ", median(weather_tpa$max_temp, na.rm = TRUE), "F"), 
+    color = "#440154", fill = "white", size = 3.2, label.size = 0.4
+  ) +
+  scale_x_continuous(limits = c(55, NA), breaks = seq(55, 100, by = 5)) +
+  labs(
+    title = "Maximum Temperatures by Density in Tampa, Florida (2022)",
+    subtitle = "Epanechnikov kernel, bw = 0.5",
+    x = "Maximum Temperature (F)", 
+    y = NULL,
+    caption = "Source: FSU's Florida Climate Center"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", color = "#440154"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank()
+  )
+```
+
+<p>The redesign is meant to utilize the color scheme of viridis,simplify the background, and point out the median with a label. </p>
+
+(c) Create a plot like the one below:
+
+```{r, echo = FALSE, out.width="80%", fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_density_facet.png")
+```
+
+Hint: default options for `geom_density()` were used. 
+
+```{r}
+unique(weather_tpa$year)
+```
+
+```{r fig.alt="Several density plots of the maximum temperatures in Tampa, FL for each month of 2022. The summer months show narrow high-temperature distributions while winter months are wider and lower."}
+weather_tpa %>% 
+  ggplot(aes(x = max_temp, fill = month_name)) +
+  geom_density()+
+  facet_wrap(~month_name, nrow = 3)+
+  scale_fill_viridis_d(guide = "none")+
+  labs(
+    title = "Density Plots for Each Month in Tampa, Florida (2022)",
+    x = "Maximum Temperatures",
+    y = NULL,
+    caption = "Source: FSU's Florida Climate Center") +
+  theme_bw()
+```
+
+(d) Generate a plot like the chart below:
+
+```{r, echo = FALSE, out.width="80%", fig.align='center'}
+knitr::include_graphics("https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/figures/tpa_max_temps_ridges_plasma.png")
+```
+
+Hint: use the`{ggridges}` package, and the `geom_density_ridges()` function paying close attention to the `quantile_lines` and `quantiles` parameters. The plot above uses the `plasma` option (color scale) for the _viridis_ palette.
+
+```{r,message=FALSE, fig.alt="A ridgeline plot of maximum temperatures in Tampa, FL by month in 2022 using the viridis palette. The median line in each ridge. Temperatures increase from winter to summer months with July and August with the highest peaks."}
+weather_tpa %>% 
+  ggplot(aes(x =max_temp, y = month_name, fill = after_stat(x))) +
+  geom_density_ridges_gradient(quantile_lines = TRUE,
+                      quantiles = 2,
+                      scale = 3)+
+  scale_fill_viridis_c(option = "plasma", name = "")+
+  labs(
+    title = "Maximum Temperatures in Tampa, Florida (2022)",
+    x = "Maximum Temperatures (in Farenheit)",
+    y = NULL,
+    caption = "Source: FSU's Florida Climate Center")+
+  theme_bw()
+```
+
+
+(e) Create a plot of your choice that uses the attribute for precipitation _(values of -99.9 for temperature or -99.99 for precipitation represent missing data)_.
+```{r}
+glimpse(weather_tpa)
+```
+
+```{r fig.alt="A bar chart showing daily precipitation in Tampa, FL in 2022. Most days show little to no rainfall. The highest single-day rainfall is highlighted in pink with a label saying it was July 16th with 2.86 inches."}
+weather_tpa %>%
+  filter(precipitation != -99.99) %>%
+  mutate(is_max = precipitation == max(precipitation)) %>%
+  ggplot(aes(x = date, y = precipitation, fill = is_max)) +
+  geom_col() +
+  geom_label(
+    data = . %>% filter(precipitation == max(precipitation)),
+    aes(label = paste("Highest rainfall (2.86	)\n", format(date, "%b %d"))),
+    fill = "white",
+    color = "#CC79A7",
+    nudge_y = 0.1,
+    size = 3
+  ) +
+  scale_fill_manual(
+    values = c("FALSE" = "#440154", "TRUE" = "#CC79A7"),
+    guide = "none"
+  ) +
+  scale_x_date(date_labels = "%b", date_breaks = "1 month") +
+  labs(
+    title = "Daily Precipitation in Inches- Tampa, FL (2022)",
+    x = NULL,
+    y = NULL,
+    caption = "Source: FSU's Florida Climate Center") +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+```
+
+# PART 2: Billboard Hits 2015
+
+---
+
+### Option (A): Visualizing Text Data
+
+Review the set of slides (and additional resources linked in it) for visualizing text data: Week 6 PowerPoint slides of Visualizing Text Data. 
+
+Choose any dataset with text data, and create at least one visualization with it. For example, you can create a frequency count of most used bigrams, a sentiment analysis of the text data, a network visualization of terms commonly used together, and/or a visualization of a topic modeling approach to the problem of identifying words/documents associated to different topics in the text data you decide to use. 
+
+Make sure to include a copy of the dataset in the `data/` folder, and reference your sources if different from the ones listed below:
+
+- [Billboard Top 100 Lyrics](https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/data/BB_top100_2015.csv)
+
+- [RateMyProfessors comments](https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/data/rmp_wit_comments.csv)
+
+- [FL Poly News Articles](https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/data/flpoly_news_SP23.csv)
+
+## Pre-requisites
+
+```{r, warning=FALSE}
+library(tidytext)
+library(wordcloud2)
+library(htmltools)
+library(stopwords)
+library(wordcloud)
+```
+
+```{r load-spotify, message=FALSE}
+spotifyURL <- "https://raw.githubusercontent.com/aalhamadani/dataviz_final_project/main/data/BB_top100_2015.csv"
+billboard <- read_csv(spotifyURL)
+```
+
+```{r}
+head(billboard)
+```
+
+
+
+```{r}
+glimpse(billboard)
+```
+
+## Data Cleaning/Wrangling
+
+```{r}
+colSums(is.na(billboard))
+```
+```{r}
+billboard %>% 
+  filter(is.na(Lyrics)) %>% 
+  gt() %>%
+  tab_header(title = "Songs with Missing Lyrics") %>%
+  tab_style(
+    style = cell_fill(color = "#FDE725"),
+    locations = cells_body(columns = Lyrics)) %>%
+  tab_options(
+    table.font.size = px(14),
+    heading.title.font.size = px(18),
+    column_labels.font.weight = "bold")
+```
+
+<p> Out of 100 observations, there are two songs: **nasty style** by Twayne and **she knows** by Neyo, that do not have the lyrics. With the limited observations, it's important to note that any visualizations are composed of 98 observations. However, I will be keeping the observations to utilize the title. </p>
+
+```{r}
+billboard %>% 
+  count(Song,Artist,Lyrics) %>% 
+  filter(n>1)
+
+sum(duplicated(billboard))
+```
+<p> There are no recorded duplicated observations. </p>
+
+```{r}
+billboard %>% 
+  filter(str_detect(Lyrics, fixed("*"))) %>% 
+  select(Song, Artist, Lyrics) %>% 
+  head()
+```
+
+```{r}
+billboard %>%
+  filter(str_detect(Lyrics, fixed("*"))) %>%
+  mutate(censored_words = str_extract_all(Lyrics, "\\w*\\*+\\w*")) %>%
+  select(Song, Artist, censored_words) %>%
+  unnest(censored_words) %>%
+  distinct(censored_words) %>% 
+  gt() %>%
+  tab_header(title = "Censored Words Found in Lyrics") %>%
+  cols_label(censored_words = "Word") %>%
+  cols_align(align = "center", columns = everything()) %>%
+  tab_options(
+    table.font.size = px(14),
+    heading.title.font.size = px(18),
+    column_labels.font.weight = "bold")
+```
+
+```{r}
+billboard %>%
+  filter(str_detect(Song, fixed("*"))) %>%
+  mutate(censored_words = str_extract_all(Song, "\\w*\\*+\\w*")) %>%
+  select(Song, Artist, censored_words) %>%
+  unnest(censored_words) %>%
+  distinct(censored_words) 
+```
+
+<p>Analyzing the lyrics, there was censorship for any recorded instance of "f*ck". The issue lies with the fact that the unnest_tokens() function splits on punctuation and special characters and would unknowingly create "f" and "ck" as tokens. It's necessary to account for the asterisk when utilizing the data. Song titles, on the other hand, do not have this problem. </p>
+
+```{r}
+billboard %>% 
+  filter(str_detect(Lyrics, fixed("coco"))) %>% 
+  select(Song, Artist, Lyrics) %>% 
+  head()
+``` 
+
+<p>Out of curiosity as to why there were 47 instances of the word "coco" in the later visualizations, I found there are two songs that contain said lyric. Looking at **Ayo** by Chris Brown & Tyga, there is one instance "coco". On the other hand, **Coco** by O.T. Genasis says the word *46* times- a song explicitly about [cocaine](https://www.rollingstone.com/music/music-news/o-t-loves-coco-the-story-behind-the-rising-rappers-viral-hit-46815/). </p>
+
+```{r filtered-lyrics}
+filter_lyrics <- billboard %>% 
+  #mutate(Lyrics = str_replace_all(Lyrics, "\\w+\\*+\\w*", "censored")) %>%
+  unnest_tokens(word, Lyrics, token = "regex", pattern = "[^a-zA-Z*]+") %>% 
+  filter(!word %in% stopwords("en")) %>% 
+  filter(!word %in% c("yeah", "ooh", "gonna", "gotta", "wanna", "aye", 
+                      "chorus", "verse", "em", "ah", "la", "oh", "hey",
+                      "im", "ive", "youre", "thats", "didnt", "its", 
+                      "ill", "id", "uh", "like")) %>%
+  count(word, sort = TRUE) %>%
+  slice_head(n = 150)
+```
+
+```{r filtered-titles}
+filter_songs <- billboard %>% 
+  unnest_tokens(word, Song) %>% 
+  filter(!word %in% stopwords("en")) %>% 
+  filter(!word %in% c("yeah", "ooh", "gonna", "gotta", "wanna", "aye", 
+                      "chorus", "verse", "em", "ah", "la", "oh", "hey",
+                      "im", "ive", "youre", "thats", "didnt", "its", 
+                      "ill", "id", "uh", "like")) %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 1)
+```
+
+<p> Filtered tokens from titles is significantly smaller in comparison to the tokens from lyrics to account for the fact titles are shorter. The highest number of times there was a duplicate of a word is three times, so it demonstrates anytime a word showed up more than once. </p>
+
+
+## Visualizations
+
+---
+
+### Word Clouds
+
+```{r fig.width = 10, fig.height = 5, fig.alt="A word cloud of the most frequently used words across the top 100 Billboard songs from 2015. Words like love, know, got, and just are the largest to show they're the most common using the viridis color palette."}
+viridis_color1 <- viridis::viridis(nrow(filter_lyrics))
+
+browsable(tagList(
+  tags$h3("Most Common Words in 2015 Billboard Lyrics",
+          style = "text-align: center; font-family: sans-serif;"),
+  wordcloud2(filter_lyrics,
+             color = viridis_color1,
+             backgroundColor = "white",
+             size = 0.4,
+             rotateRatio = 0.3),
+  tags$p("Source: Billboard Top 100, 2015",
+         style = "text-align: center; font-size: 12px; color: gray; font-family: sans-serif;")
+))
+```
+
+<p>Each word is hoverable with the exact count.</p>
+```{r lyric-table}
+filter_lyrics %>%
+  slice_head(n = 10) %>%
+  gt() %>%
+  tab_header(title = "Top 10 Most Common Words in Lyrics") %>%
+  cols_label(word = "Word", n = "Count") %>%
+  cols_align(align = "center", columns = everything()) %>%
+  data_color(columns = n, palette = "viridis") %>%
+  tab_options(
+    table.font.size = px(14),
+    heading.title.font.size = px(18),
+    column_labels.font.weight = "bold")
+```
+
+           
+```{r fig.alt="A word cloud of the most common words found in the top 100 Billboard song titles in 2015. Words that appear in more than one title are shown, with love, time, and dont being among the most often.",fig.width=10, fig.height=5, warning=FALSE}
+
+viridis_color2 <- viridis::viridis(nrow(filter_songs))
+
+wordcloud(words = filter_songs$word,
+          freq = filter_songs$n,
+          min.freq = 1,
+          max.words = 150,
+          random.order = FALSE,
+          colors = viridis::viridis(10),
+          scale = c(4, 0.5))
+```
+
+```{r}
+filter_songs %>%
+  slice_head(n = 10) %>%
+  gt() %>%
+  tab_header(title = "Top 10 Most Common Words in Song Titles") %>%
+  cols_label(word = "Word", n = "Count") %>%
+  cols_align(align = "center", columns = everything()) %>%
+  tab_style(
+    style = cell_fill(color = "#FDE725"),
+    locations = cells_body(rows = n == 3)) %>%
+  tab_options(
+    table.font.size = px(14),
+    heading.title.font.size = px(18),
+    column_labels.font.weight = "bold")
+```
+

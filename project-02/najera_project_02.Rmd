@@ -1,0 +1,396 @@
+---
+title: "Mini-Project 02"
+author: "Melanie Najera `mnajera4001@floridapoly.edu`"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    highlight: kate
+    toc_depth: 3
+---
+
+# Pre-requisites
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(gt)
+library(plotly)
+library(htmlwidgets)
+library(sf)
+library(broom)
+set.seed(636)
+```
+
+```{r data-load}
+births <- readRDS(url("https://github.com/aalhamadani/datasets/raw/refs/heads/main/babynames.rds"))
+```
+
+```{r load-state}
+state_births <- readRDS(url("https://raw.githubusercontent.com/mela636/birth-data/main/state_births.rds"))
+states_sf <- sf::st_read("https://raw.githubusercontent.com/mela636/birth-data/main/states.geojson", quiet = TRUE)
+```
+
+---
+
+# Introduction
+
+<p>The purpose of this project is to explore the *Baby Names* dataset, which provides baby names from the Social Security Administration. It has 1,924,665 observations and 5 features that include the year, the sex of the baby, the name, the count of how many babies had that name that year, and proportion. It ranges from 1880 to 2017. In addition to that is the *Beyond the Top 1000 Names* dataset that is also provided by the Social Security Administration which, has 6,696,687 observations and includes the state where the baby is born. It's utilized for the spatial visualization to map the most popular name of its respective state. </p>
+
+---
+
+# Data Exploration
+
+```{r data-overview}
+head(births)
+```
+
+```{r data-overview2}
+glimpse(births)
+```
+
+```{r}
+glimpse(state_births)
+```
+
+<p>Looking at the overviews of the births dataset, there are 5 features and 1,924,665 observations. </p>
+
+```{r rename}
+births <- births %>% 
+  rename("count" = n)
+```
+
+<p>For clarity as to what *n* feature is, I renamed it to *count* to demonstrate is that the feature is the count of how many times a name appears in its respective year.</p>
+
+```{r}
+unique(births$sex)
+```
+
+<p>There are only two values from sex: "F" or "M".</p>
+
+```{r data-type}
+births <- births %>%
+  mutate(sex = factor(sex, levels = c("F", "M")))
+```
+
+<p>As sex is a categorical feature with only "F" or "M" for female and male, it felt fitting to change it to factor type instead keeping as a character type.</p>
+
+```{r na-vals}
+colSums(is.na(births))
+```
+
+<p>There are no missing values in the data.</p> 
+
+```{r duplications}
+births %>% 
+  count(sex,year,name) %>% 
+  filter(n>1)
+
+sum(duplicated(births))
+```
+
+<p>There are no duplicated observations in the data.</p> 
+
+---
+
+# Summary Statistics
+
+```{r}
+births %>% 
+  select(year,count,prop) %>% 
+  summary()
+```
+
+<p>There data ranges from the years 1880 to 2017. The lowest minimum count for a name in a year is 5 while the highest count is 99,686 times. </p>
+
+```{r}
+highest <- births %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=5) %>% 
+  select(name,sex,year,count) %>% 
+  gt() %>% 
+  tab_header(title = "Top 5 Highest Single-Year Counts") %>% 
+  data_color(columns = count, palette = "viridis") %>% 
+  cols_label(name = "Name", sex = "Sex", year = "Year", count= "Count") %>% 
+  fmt_number(columns = count, decimals = 0, use_seps = TRUE) %>% 
+  tab_options(
+    table.font.size = px(14),
+    heading.title.font.size = px(17),
+    column_labels.font.weight = "bold"
+  )
+  
+
+highest
+```
+
+```{r}
+overall <- births %>% 
+  group_by(name) %>% 
+  summarise(total_count = sum(count), .groups = "drop") %>% 
+  arrange(desc(total_count)) %>% 
+  slice_head(n=5) %>% 
+  gt() %>% 
+  tab_header(title = "Top 5 Names Overall (All Years, Both Sexes)") %>% 
+  data_color(columns = total_count, palette = "viridis") %>% 
+  cols_label(name = "Name", total_count= "Total Count") %>% 
+  fmt_number(columns = total_count, decimals = 0, use_seps = TRUE) %>% 
+  tab_options(
+    table.font.size = px(14),
+    heading.title.font.size = px(17),
+    column_labels.font.weight = "bold"
+  )
+
+overall
+```
+
+---
+
+# Visualizations
+
+### Top 10 Baby Names Per Sex by Year
+
+```{r fig.alt = "An animated bar chart showing the top 10 baby names per sex each year from 1880 to 2017. Female names are shown in purple and male in yellow. Users can slide across the player through years or press play to see how naming trends changed over time."}
+top_year <- births %>% 
+  group_by(year,sex) %>% 
+  slice_max(count, n=10,with_ties = FALSE) %>% 
+  ungroup() %>% 
+  arrange() %>% 
+  plot_ly(
+    x = ~count,
+    y = ~reorder(name,count),
+    color = ~sex,
+    colors = c("F" = "#440154", "M" = "#FDE725"),
+    frame = ~year,
+    type = "bar",
+    orientation = "h",
+    text = ~paste0(name, ": ", count),
+    hoverinfo = "text",
+    marker = list(line = list(color = "black", width = 1))) %>% 
+    plotly::layout(
+    title = list(text = "Top 10 Baby Names per Sex by Year", font = list(size = 18)),
+    xaxis = list(title = ""),
+    yaxis = list(title = ""),
+    plot_bgcolor = "white",
+    paper_bgcolor = "white")
+
+top_year
+saveWidget(top_year,file = "top_names_by_year.html", selfcontained = TRUE)
+```
+
+### Babies Named Melanie Over Time
+
+```{r fig.alt="A line chart showing the popularity of the name Melanie for young girls from 1880 to 2017. The name peaks in 1972 with over 6,000 births, marked with a blue label, and gradually declines afterward."}
+melanie_data <- births %>% 
+  filter(name == "Melanie", sex == "F")
+
+peak <- melanie_data %>% filter(count == max(count))
+
+melanie <- melanie_data %>%
+  ggplot(aes(x = year, y = count)) +
+  geom_line(color = "#440154", linewidth = 1) +
+  geom_point(color = "#440154", size = 1.5, alpha = 0.7) +
+  geom_point(data = peak, aes(x = year, y = count),
+             color = "#31688E", size = 4) +
+  geom_label(data = peak,
+             aes(label = paste0("Peak: ", scales::comma(count), " (", year, ")")),
+             vjust = -1, size = 3,
+             fill = "white", color = "#31688E", label.size = 0.4) +
+  coord_cartesian(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  labs(
+    title = "Babies Named Melanie, 1880\u20132017",
+    subtitle = "Count of births per year",
+    x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", color = "#440154"),
+    plot.subtitle = element_text(color = "#31688E"),
+    axis.text = element_text(color = "#440154"),
+    legend.position = "none")
+
+melanie
+
+saveWidget(ggplotly(melanie), file = "melanie_throughout_time.html", selfcontained = TRUE)
+```
+
+### Initial Design of: Most Popular Baby Names by State in 2003
+
+```{r fig.alt = "The initial interactive design of a map of the United States demonstrating the most popular baby name in each state in 2003. Graph is scaled unevenly and is difficult to see the states. States are shaded by count using the viridis palette. Hovering reveals the state name, top name, and count.", warning=FALSE}
+snapshot <- 2003
+
+state_name <- state_births %>% 
+  filter(year == snapshot) %>% 
+  group_by(state) %>% 
+  slice_max(count, n=1, with_ties = FALSE) %>% 
+  ungroup() %>% 
+  select(state,name,count)
+
+map <- states_sf %>%
+  inner_join(state_name, by = c("STUSPS" = "state")) %>%
+  mutate(hover_text = paste0(
+    "<b>", NAME, "</b><br>",
+    "Top name: ", name, "<br>",
+    "Count: ", format(count, big.mark = ",")))
+
+state <- plot_ly(
+  data = map,
+  split = ~NAME,
+  color = ~count,
+  colors = colorRamp(c("#EBB4BF", "#A1445A", "#4F2E36")),
+  text = ~hover_text,
+  hoverinfo = "text",
+  hoveron = "fills",
+  showlegend = FALSE,
+  stroke = I("white"),
+  span = I(1)
+) %>%
+  layout(
+    title = list(
+      text = paste("Most Popular Baby Name by State,", snapshot),
+      font = list(color = "#4F2E36", size = 18),
+      y = 0.98),
+    margin = list(t = 80, l = 20, r = 20, b = 20),
+    xaxis = list(visible = FALSE, showgrid = FALSE, zeroline = FALSE),
+    yaxis = list(visible = FALSE, showgrid = FALSE, zeroline = FALSE),
+    plot_bgcolor = "white",
+    paper_bgcolor = "white") %>%
+  colorbar(title = "Count") %>% 
+  style(showlegend = FALSE)
+
+state
+```
+
+
+### Most Popular Baby Names by State in 2003
+
+```{r, warning=FALSE, fig.alt = "An interactive map of the United States showing the most popular baby name in each state in 2003. States are shaded by count using the viridis palette. Hovering reveals the state name, top name, and count.",fig.width=10, fig.height=6}
+snapshot <- 2003
+
+state_name <- state_births %>% 
+  filter(year == snapshot) %>% 
+  group_by(state) %>% 
+  slice_max(count, n = 1, with_ties = FALSE) %>% 
+  ungroup() %>% 
+  select(state, name, count)
+
+map <- states_sf %>%
+  inner_join(state_name, by = c("STUSPS" = "state")) %>%
+  mutate(hover_text = paste0(
+    "<b>", NAME, "</b><br>",
+    "Top name: ", name, "<br>",
+    "Count: ", format(count, big.mark = ","))) %>%
+  st_transform(crs = 5070)
+
+map_plot <- ggplot(map) +
+  geom_sf(aes(fill = count, text = hover_text), color = "white", linewidth = 0.3) +
+  scale_fill_viridis_c(option = "viridis", name = "Count") +
+  coord_sf(xlim = c(-2500000, 2500000), ylim = c(-2000000, 3000000)) +
+  labs(title = paste("Most Popular Baby Name by State,", snapshot)) +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.position = "right")
+
+state <- ggplotly(map_plot, tooltip = "text") %>%
+  plotly::layout(
+    paper_bgcolor = "white",
+    plot_bgcolor = "white",
+    margin = list(t = 60, l = 0, r = 100, b = 0)) %>%
+  colorbar(title = "Count", len = 0.5, thickness = 15, x = 1.02, y = 0.5)
+
+state
+
+saveWidget(state, file = "name_by_state_map.html", selfcontained = TRUE)
+```
+
+### Linear Model
+
+```{r}
+births_year <- births %>% 
+  group_by(year) %>% 
+  summarise(total_births= sum(count), .groups = "drop")
+
+model <- lm(total_births ~ year, data = births_year)
+summary(model)
+```
+
+### Total Recorded Births by Year
+
+```{r fig.alt = "A scatter plot of total recorded US births by year from 1880 to 2017 with a linear model fit in purple. The baby boom of the 1950s creates a notable rise above the trend line. It's important to note that the points do not align with the linear fit.", message=FALSE}
+ggplot(births_year, aes(year, total_births)) +
+  geom_point(color = "#22908C", alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", color = "#440154", fill = "#8DD3C7", se = TRUE) +
+  labs(
+    title = "Total Recorded Births by Year",
+    subtitle = "Linear Model Fit",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", color = "#440154"),
+    plot.subtitle = element_text(color = "#31688E")
+  )
+```
+
+### Model Coefficients
+
+```{r fig.alt = "A coefficient plot for a linear model of total births by year. The year coefficient is positive and statistically significant with a narrow confidence interval.",warning=FALSE,message=FALSE}
+coef_df <- tidy(model, conf.int = TRUE)
+
+ggplot(coef_df, aes(x = estimate, y = term)) +
+  geom_point(size = 3, color = "#22908C") +
+  geom_errorbar(aes(xmin = conf.low, xmax = conf.high), height = 0.2, color = "#440154") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "#440154") +
+  labs(
+    title = "Linear Model Coefficients",
+    subtitle = "Total Births ~ Year",
+    x = "Estimate", y = ""
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", color = "#440154"),
+    plot.subtitle = element_text(color = "#31688E"),
+    axis.text = element_text(color = "#440154")
+  )
+```
+
+### Model Comparison
+
+```{r fig.alt = "A comparison of the linear and loess fits to the total recorded births by year. The loess curve shows a non-linear pattern with a peak in the 1950's and a later decline that the linear model can't capture.", message=FALSE}
+ggplot(births_year, aes(x = year, y = total_births)) +
+  geom_point(color = "#22908C", alpha = 0.5, size = 2) +
+  geom_smooth(aes(color = "Linear"), method = "lm", se = FALSE, linewidth = 1) +
+  geom_smooth(aes(color = "Loess"), method = "loess", se = FALSE, linewidth = 1) +
+  scale_color_manual(values = c("Linear" = "#440154", "Loess" = "#FDE725"), name = "Model") +
+  labs(
+    title = "Total Recorded Births by Year",
+    subtitle = "Linear Fit vs. Loess Smooth",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", color = "#440154"),
+    plot.subtitle = element_text(color = "#31688E"),
+    legend.title = element_text(color = "#440154"),
+    legend.text = element_text(color = "#440154")
+  )
+```
+
+<p>While the linear model is statistically significant, the comparison shows that it doesn't actually show the real pattern in the data while the loess smooth reveals that births dipped below the linear trend in the early 1900s, rose during the mid-century baby boom, and has slightly declined in more recent decades. Using the linear model would noticeably overestimate future births.</p>
+
+# Report Questions
+
+### What were the original charts you planned to create for this assignments? What steps were necessary for cleaning and preparing the data?
+
+<p>The original visualizations I planned to explore was to see what were the names with the highest counts within its respective year, the most common names (with the highest overall total count), and  names that are common over time (how often they appear throughout the years). The issue that appeared was that, trying to see names that have high counts by how often the appear in different years is that there is too many. Even expanding the initial table to show the highest 50, they all appeared in 138 years. When cleaning, there were no issues with any missing values or duplication. I did change the feature *n* to *count*, simply to keep it clear to me that it was the count of how often said baby name appeared that year. I changed the sex variable to a factor as there were only two options: M or F. It was necessary to add a new dataset as there were no geographical features in the original, and I needed an aspect that I could map. </p>
+
+### What story could you tell with your plots? What difficulties did you encounter while creating the visualizations? What additional approaches do you think can be use to explore the data you selected?
+
+<p>The story told through the plots is the how baby names have evolved over time. The Top 10 Baby Names by Year graph shows how naming trends tend to shift each year and how they differ between sexes. In comparison, is a more self-indulgent graph that demonstrates how a single name can change throughout time (in this example, it's my own name *Melanie*). The state map changes the view to a single  year and shows that the "most popular" name isn't uniform across the country. Lastly is a linear model, coefficient plot, and the Loess comparison plot. It demonstrate a broad view of increasing births increasing overtime, however it's not accurate as the actual structure is more fluid. A notable example is the baby boom in the 1950's leading to an increase in births and a decline in more recent years. Something I struggled with is realizing my initial dataset didn't have information I could utilize for the spatial graph and trying to match the data. However, I was lucky once I found the other SSA dataset starting from the early 1900's. Another is, I cannot for the life of me fix the state graph. The color bar will not resize and align with the map. I wish I spent more time trying to fix the model instead of defaulting to a linear model. Additional approaches could be used with the second dataset, especially since it has a significant amount more of observations. There are certain visuals that could compare unisex names and their respective popularities. </p>
+
+### How did you apply the principles of data visualizations and design for this assignment?
+
+<p>I originally applied the principles of data visualization and design for this assignment by formatting the report using readthedown to organize the report. By extension, I had utilized a consistent pink color palette (<span style="color:#EBB4BF; font-weight:bold;">#EBB4BF</span> to <span style="color:#4F2E36; font-weight:bold;">#4F2E36</span>) for all of the tables and plots to create visual cohesion throughout the report- which match the style of readthedown. After revisiting this project, I change the format to robobook as well as altered the color palette to be viridis. In certain graphs, I remove aspects that crowd the graph (certain lines and axis names). I made sure to include title labels this time so the graphs can be read individually. </p>
+
+## Redesigns of Charts
+
+The initial color palette of this project was pink <span style="color:#EBB4BF; font-weight:bold;">#EBB4BF</span> to <span style="color:#4F2E36; font-weight:bold;">#4F2E36</span>) for all of the tables and plots to create visual cohesion throughout the report, however, each chart now follows the viridis palette as it's **color-blind safe**. There are labels in order to point out the points on the graph that stand out such as the peak of babies named *Melanie* is in 1972. Each have an alternative description to serve as an aid to the audience. The state map was adjusted in order to no longer be squished in the chunk.
